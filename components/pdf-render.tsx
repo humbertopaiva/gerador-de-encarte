@@ -12,89 +12,91 @@ import {
 } from "@react-pdf/renderer";
 import { CatalogSettings, Product } from "./product-catalog-builder/types";
 
+// Tamanho do A4 (em pontos)
+const A4_WIDTH = 595;
+const A4_HEIGHT = 842;
+
+// Alturas fixas para Header, Footer e Content
+const HEADER_HEIGHT = A4_HEIGHT * 0.15; // 15%
+const FOOTER_HEIGHT = A4_HEIGHT * 0.1; // 10%
+const CONTENT_HEIGHT = A4_HEIGHT - HEADER_HEIGHT - FOOTER_HEIGHT; // Restante (~632pt)
+
+// Padding interno para o conteúdo dos produtos
+const CONTENT_PADDING = 12; // Padding para o container de produtos
+
+// Margens e espaçamento
+const GAP = 8; // Espaçamento entre os produtos
+
+// Função para calcular dimensões dos cards
+const calculateCardDimensions = (columns: number, rows: number) => {
+  const cardWidth =
+    (A4_WIDTH - CONTENT_PADDING * 2 - (columns - 1) * GAP) / columns;
+  const cardHeight =
+    (CONTENT_HEIGHT - CONTENT_PADDING * 2 - (rows - 1) * GAP) / rows;
+  return { cardWidth, cardHeight };
+};
+
 const styles = StyleSheet.create({
   page: {
-    backgroundColor: "#f1f1f1",
+    backgroundColor: "#ffffff",
+    width: A4_WIDTH,
+    height: A4_HEIGHT,
     flexDirection: "column",
-    display: "flex",
   },
   header: {
-    height: "20%",
+    height: HEADER_HEIGHT,
     width: "100%",
+    // marginBottom: GAP,
   },
   headerImage: {
     width: "100%",
     height: "100%",
   },
   content: {
-    padding: "20 30",
-    height: "70%",
-    flex: 1,
-  },
-  //   productsGrid: {
-  //     display: "flex",
-  //     flexDirection: "row",
-  //     flexWrap: "wrap",
-  //     justifyContent: "space-between",
-  //   },
-  //   productCard: {
-  //     width: "31%",
-  //     marginBottom: 20,
-  //     backgroundColor: "#ffffff",
-  //     padding: 12,
-  //   },
-  productsGrid: {
+    height: CONTENT_HEIGHT,
+    padding: CONTENT_PADDING, // Padding apenas no conteúdo
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center",
+    justifyContent: "space-between",
+  },
+  footer: {
+    height: FOOTER_HEIGHT,
+    width: "100%",
+    // marginTop: GAP,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   productCard: {
-    width: "31%",
-    marginBottom: 8, // Espaço vertical reduzido
-    marginRight: 8, // Espaço horizontal reduzido
     backgroundColor: "#ffffff",
-
-    padding: 8, // Padding interno menor
+    padding: 10,
+    marginBottom: GAP,
   },
   productImageWrapper: {
     width: "100%",
-    position: "relative",
-    marginBottom: 12,
-  },
-  productImageContainer: {
-    width: "100%",
-    paddingTop: "75%",
-    backgroundColor: "#ffffff",
-
-    position: "relative",
-    overflow: "hidden",
+    height: "70%", // 70% da altura do card reservado para a imagem
+    marginBottom: 8,
   },
   productImage: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: "5%",
-  },
-  productImageContent: {
-    maxWidth: "100%",
-    maxHeight: "100%",
-    objectFit: "contain",
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+    borderRadius: 2,
   },
   productTitle: {
-    fontSize: 12,
-    marginBottom: 4,
+    fontSize: 10,
     textAlign: "left",
+    marginBottom: 4,
+    lineHeight: 1.4, // Permite até 2 linhas
+    maxWidth: "100%", // Limita o título à largura do card
+    overflow: "hidden", // Garante que o texto não ultrapasse
+    wordWrap: "break-word", // Faz a quebra de linha no texto longo
   },
   priceContainer: {
     flexDirection: "row",
     justifyContent: "flex-start",
     alignItems: "center",
-    gap: 8,
+    gap: 5,
   },
   originalPrice: {
     fontSize: 10,
@@ -102,32 +104,9 @@ const styles = StyleSheet.create({
     color: "#666666",
   },
   discountPrice: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "bold",
-  },
-  footer: {
-    height: "10%",
-    padding: "10 30",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  footerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 20,
-  },
-  footerContact: {
-    color: "#ffffff",
-    fontSize: 10,
-  },
-  footerSocial: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  footerRight: {
-    width: 80,
-    height: 80,
+    color: "#FF3B30", // Cor de exemplo
   },
 });
 
@@ -143,94 +122,78 @@ export default function PDFRenderer({
   onComplete,
 }: PDFRendererProps) {
   useEffect(() => {
-    console.log("DATA", products, settings);
     const generatePDF = async () => {
       try {
+        const [columns, rows] = settings.layout
+          .split("x")
+          .map((n) => parseInt(n, 10)); // Extrai colunas e linhas do layout
+        const productsPerPage = columns * rows; // Produtos por página
+        const visibleProducts = products.slice(0, productsPerPage); // Filtra os produtos visíveis
+
+        const { cardWidth, cardHeight } = calculateCardDimensions(
+          columns,
+          rows
+        );
+
         const PDFDocument = () => (
           <Document>
             <Page size="A4" style={styles.page}>
+              {/* Header */}
               <View style={styles.header}>
                 <Image src={settings.header.logo} style={styles.headerImage} />
               </View>
 
+              {/* Content */}
               <View style={styles.content}>
-                <View style={styles.productsGrid}>
-                  {products.map((product, index) => (
-                    <View key={index} style={styles.productCard}>
-                      <View style={styles.productImageWrapper}>
-                        <View style={styles.productImageContainer}>
-                          {product.image && (
-                            <View style={styles.productImage}>
-                              <Image
-                                src={product.image}
-                                style={styles.productImageContent}
-                              />
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                      <Text style={styles.productTitle}>{product.title}</Text>
-                      <View style={styles.priceContainer}>
-                        <Text style={styles.originalPrice}>
-                          {product.originalPrice}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.discountPrice,
-                            { color: settings.primaryColor },
-                          ]}
-                        >
-                          {product.discountPrice}
-                        </Text>
-                      </View>
+                {visibleProducts.map((product, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.productCard,
+                      {
+                        width: cardWidth,
+                        height: cardHeight,
+                      },
+                    ]}
+                  >
+                    <View style={styles.productImageWrapper}>
+                      {product.image && (
+                        <Image
+                          src={product.image}
+                          style={styles.productImage}
+                        />
+                      )}
                     </View>
-                  ))}
-                </View>
+                    <Text style={styles.productTitle}>{product.title}</Text>
+                    <View style={styles.priceContainer}>
+                      {product.originalPrice && (
+                        <Text style={styles.originalPrice}>
+                          R$ {product.originalPrice}
+                        </Text>
+                      )}
+                      <Text
+                        style={[
+                          styles.discountPrice,
+                          { color: settings.primaryColor },
+                        ]}
+                      >
+                        R$ {product.discountPrice}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
               </View>
 
+              {/* Footer */}
               <View
                 style={[
                   styles.footer,
                   { backgroundColor: settings.footer.backgroundColor },
                 ]}
               >
-                <View style={styles.footerLeft}>
-                  {settings.footer.whatsapp && (
-                    <Text style={styles.footerContact}>
-                      WhatsApp: {settings.footer.whatsapp}
-                    </Text>
-                  )}
-                  <View style={styles.footerSocial}>
-                    {settings.footer.instagram && (
-                      <Text style={styles.footerContact}>Instagram</Text>
-                    )}
-                    {settings.footer.facebook && (
-                      <Text style={styles.footerContact}>Facebook</Text>
-                    )}
-                    {settings.footer.tiktok && (
-                      <Text style={styles.footerContact}>TikTok</Text>
-                    )}
-                  </View>
-                  {settings.footer.address && (
-                    <Text style={styles.footerContact}>
-                      {settings.footer.address}
-                    </Text>
-                  )}
-                  {settings.footer.website && (
-                    <Text style={styles.footerContact}>
-                      {settings.footer.website}
-                    </Text>
-                  )}
-                </View>
-                {settings.footer.qrCodeLink && (
-                  <View style={styles.footerRight}>
-                    <Image
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
-                        settings.footer.qrCodeLink
-                      )}`}
-                    />
-                  </View>
-                )}
+                <Text style={{ color: "#fff", fontSize: 12 }}>
+                  {settings.footer.website || "Footer Information"}
+                </Text>
               </View>
             </Page>
           </Document>
